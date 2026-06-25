@@ -5,13 +5,16 @@
 body { margin: 0; padding: 16px; background: #000; color: #0f0; font: 24px monospace; }
 </style>
 
-<p id="status">connecting...</p>
+<p id="status">html loaded v3</p>
+<p id="clock"></p>
 <ul id="log"></ul>
 
 <script>
+(() => {
 const url = "wss://api.synchra.net/api/2/ws";
-const status = document.getElementById("status");
-const log = document.getElementById("log");
+const statusEl = document.getElementById("status");
+const clockEl = document.getElementById("clock");
+const logEl = document.getElementById("log");
 
 let ws;
 let timer;
@@ -19,8 +22,24 @@ let timer;
 function add(type, text) {
   const item = document.createElement("li");
   item.textContent = `${new Date().toISOString()} ${type} ${text}`;
-  log.prepend(item);
+  logEl.prepend(item);
+  moblinLog(item.textContent);
 }
+
+function moblinLog(text) {
+  try {
+    if (typeof moblin !== "undefined") moblin.publish({ log: { message: text } });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+window.onerror = (message, source, line) => add("js-error", `${message} ${source}:${line}`);
+window.onunhandledrejection = (event) => add("promise-error", event.reason);
+statusEl.textContent = "js running v3";
+setInterval(() => clockEl.textContent = `js tick ${new Date().toISOString()}`, 1000);
+add("script", navigator.userAgent);
+add("moblin", typeof moblin);
 
 function ping() {
   ws.send("ping");
@@ -28,11 +47,27 @@ function ping() {
 }
 
 function connect() {
-  ws = new WebSocket(url);
-  status.textContent = `connecting to ${url}`;
+  statusEl.textContent = `opening ${url}`;
+
+  try {
+    ws = new WebSocket(url);
+  } catch (error) {
+    statusEl.textContent = "websocket constructor failed";
+    add("throw", error.message || String(error));
+    setTimeout(connect, 5000);
+    return;
+  }
+
+  const stuck = setTimeout(() => {
+    if (ws.readyState === WebSocket.CONNECTING) {
+      statusEl.textContent = "still connecting";
+      add("stuck", navigator.userAgent);
+    }
+  }, 7000);
 
   ws.onopen = () => {
-    status.textContent = "connected";
+    clearTimeout(stuck);
+    statusEl.textContent = "connected";
     ping();
     timer = setInterval(ping, 10000);
   };
@@ -40,12 +75,14 @@ function connect() {
   ws.onmessage = (event) => add("message", event.data);
   ws.onerror = () => add("error", "websocket error");
   ws.onclose = (event) => {
+    clearTimeout(stuck);
     clearInterval(timer);
-    status.textContent = "closed, reconnecting in 5s";
+    statusEl.textContent = "closed, reconnecting in 5s";
     add("close", `code=${event.code}`);
     setTimeout(connect, 5000);
   };
 }
 
 connect();
+})();
 </script>
