@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WS ping/pong</title>
+
+<p id="status">connecting...</p>
+<ul id="log"></ul>
+
+<script>
+const url = "wss://api.synchra.net/api/2/ws";
+const status = document.getElementById("status");
+const log = document.getElementById("log");
+
+let ws;
+let timer;
+
+function add(type, text) {
+  const item = document.createElement("li");
+  item.textContent = `${new Date().toISOString()} ${type} ${text}`;
+  log.prepend(item);
+}
+
+function ping() {
+  ws.send("ping");
+  add("ping", "ping");
+}
+
+function connect() {
+  ws = new WebSocket(url);
+  status.textContent = `connecting to ${url}`;
+
+  ws.onopen = () => {
+    status.textContent = "connected";
+    ping();
+    timer = setInterval(ping, 10000);
+  };
+
+  ws.onmessage = (event) => add("message", event.data);
+  ws.onerror = () => add("error", "websocket error");
+  ws.onclose = (event) => {
+    clearInterval(timer);
+    status.textContent = "closed, reconnecting in 5s";
+    add("close", `code=${event.code}`);
+    setTimeout(connect, 5000);
+  };
+}
+
+connect();
+</script>
