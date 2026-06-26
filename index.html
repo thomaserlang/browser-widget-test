@@ -53,9 +53,6 @@
             () => (clockEl.textContent = `js tick ${new Date().toISOString()}`),
             1000,
         );
-        add(`script ${navigator.userAgent}`);
-        add(`moblin ${typeof moblin}`);
-
         async function checkFetch() {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 10000);
@@ -66,12 +63,10 @@
                     signal: controller.signal,
                 });
                 fetchEl.textContent = `fetch ok ${response.status}`;
-                add(`fetch-ok ${response.status} online=${navigator.onLine}`);
+                add(`fetch-ok ${response.status}`);
             } catch (error) {
                 fetchEl.textContent = "fetch failed";
-                add(
-                    `fetch-error ${error.name}: ${error.message} online=${navigator.onLine}`,
-                );
+                add(`fetch-error ${error.name}: ${error.message}`);
             } finally {
                 clearTimeout(timeout);
             }
@@ -97,7 +92,7 @@
             const stuck = setTimeout(() => {
                 if (ws.readyState === WebSocket.CONNECTING) {
                     statusEl.textContent = "still connecting";
-                    add(`stuck ${navigator.userAgent}`);
+                    add("stuck connecting");
                 }
             }, 7000);
 
