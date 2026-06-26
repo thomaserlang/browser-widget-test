@@ -5,15 +5,18 @@
 body { margin: 0; padding: 16px; background: #000; color: #0f0; font: 24px monospace; }
 </style>
 
-<p id="status">html loaded v3</p>
+<p id="status">html loaded v4</p>
 <p id="clock"></p>
+<p id="fetch"></p>
 <ul id="log"></ul>
 
 <script>
 (() => {
 const url = "wss://api.synchra.net/api/2/ws";
+const fetchUrl = "https://api.github.com/zen";
 const statusEl = document.getElementById("status");
 const clockEl = document.getElementById("clock");
+const fetchEl = document.getElementById("fetch");
 const logEl = document.getElementById("log");
 
 let ws;
@@ -36,10 +39,29 @@ function moblinLog(text) {
 
 window.onerror = (message, source, line) => add("js-error", `${message} ${source}:${line}`);
 window.onunhandledrejection = (event) => add("promise-error", event.reason);
-statusEl.textContent = "js running v3";
+statusEl.textContent = "js running v4";
 setInterval(() => clockEl.textContent = `js tick ${new Date().toISOString()}`, 1000);
 add("script", navigator.userAgent);
 add("moblin", typeof moblin);
+
+async function checkFetch() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(`${fetchUrl}?t=${Date.now()}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    fetchEl.textContent = `fetch ok ${response.status}`;
+    add("fetch-ok", `${response.status} online=${navigator.onLine}`);
+  } catch (error) {
+    fetchEl.textContent = "fetch failed";
+    add("fetch-error", `${error.name}: ${error.message} online=${navigator.onLine}`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function ping() {
   ws.send("ping");
@@ -79,10 +101,14 @@ function connect() {
     clearInterval(timer);
     statusEl.textContent = "closed, reconnecting in 5s";
     add("close", `code=${event.code}`);
+    checkFetch();
     setTimeout(connect, 5000);
   };
 }
 
 connect();
+checkFetch();
+window.addEventListener("focus", checkFetch);
+document.addEventListener("visibilitychange", checkFetch);
 })();
 </script>
